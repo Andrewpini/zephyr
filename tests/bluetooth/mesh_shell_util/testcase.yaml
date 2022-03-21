@@ -1,0 +1,6 @@
+tests:
+  bluetooth.mesh.mesh_shell_util:
+    tags: mesh shell string to numeric conversion
+    platform_allow: nrf52840dk_nrf52840
+    integration_platforms:
+      - nrf52840dk_nrf52840
