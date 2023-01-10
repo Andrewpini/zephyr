@@ -184,28 +184,23 @@ struct net_buf *bt_mesh_adv_buf_get(k_timeout_t timeout)
 
 struct net_buf *bt_mesh_adv_buf_get_by_tag(uint8_t tag, k_timeout_t timeout)
 {
-	if (tag & BT_MESH_LOCAL_ADV
-#if !defined(CONFIG_BT_MESH_ADV_EXT_FRIEND_SEPARATE)
-	    || tag & BT_MESH_FRIEND_ADV
-#endif
-#if !defined(CONFIG_BT_MESH_RELAY_ADV_SETS)
-	    || !(tag & BT_MESH_FRIEND_ADV) /* Any other tag except Friend */
-#endif
-	    ) {
-		return bt_mesh_adv_buf_get(timeout);
-#if defined(CONFIG_BT_MESH_ADV_EXT_FRIEND_SEPARATE)
-	} else if (tag & BT_MESH_FRIEND_ADV) {
+	if (IS_ENABLED(CONFIG_BT_MESH_ADV_EXT_FRIEND_SEPARATE) && tag & BT_MESH_FRIEND_ADV) {
 		return net_buf_get(&bt_mesh_friend_queue, timeout);
-#endif
-#if !defined(CONFIG_BT_MESH_RELAY_ADV_SETS)
-	} else if (tag & BT_MESH_RELAY_ADV) {
-		return net_buf_get(&bt_mesh_relay_queue, timeout);
-#endif
-	} else {
-		return NULL;
 	}
+
+#if CONFIG_BT_MESH_RELAY_ADV_SETS
+	if (tag & BT_MESH_RELAY_ADV) {
+		return net_buf_get(&bt_mesh_relay_queue, timeout);
+	}
+#endif
+
+	if (tag & BT_MESH_LOCAL_ADV || tag & BT_MESH_FRIEND_ADV || tag & BT_MESH_RELAY_ADV) {
+		return net_buf_get(&bt_mesh_relay_queue, timeout);
+	}
+
+	return NULL;
 }
-#else /* !CONFIG_BT_MESH_RELAY_ADV_SETS */
+#else /* !(CONFIG_BT_MESH_RELAY_ADV_SETS || CONFIG_BT_MESH_ADV_EXT_FRIEND_SEPARATE) */
 struct net_buf *bt_mesh_adv_buf_get(k_timeout_t timeout)
 {
 	return net_buf_get(&bt_mesh_adv_queue, timeout);
@@ -217,7 +212,7 @@ struct net_buf *bt_mesh_adv_buf_get_by_tag(uint8_t tag, k_timeout_t timeout)
 
 	return bt_mesh_adv_buf_get(timeout);
 }
-#endif /* CONFIG_BT_MESH_RELAY_ADV_SETS */
+#endif /* CONFIG_BT_MESH_RELAY_ADV_SETS || CONFIG_BT_MESH_ADV_EXT_FRIEND_SEPARATE */
 
 void bt_mesh_adv_buf_get_cancel(void)
 {
@@ -244,26 +239,24 @@ void bt_mesh_adv_send(struct net_buf *buf, const struct bt_mesh_send_cb *cb,
 	BT_MESH_ADV(buf)->cb_data = cb_data;
 	BT_MESH_ADV(buf)->busy = 1U;
 
-	if (BT_MESH_ADV(buf)->tag == BT_MESH_LOCAL_ADV) {
-		net_buf_put(&bt_mesh_adv_queue, net_buf_ref(buf));
-		bt_mesh_adv_buf_local_ready();
-	} else if (BT_MESH_ADV(buf)->tag == BT_MESH_FRIEND_ADV) {
 #if defined(CONFIG_BT_MESH_ADV_EXT_FRIEND_SEPARATE)
+	if (BT_MESH_ADV(buf)->tag == BT_MESH_FRIEND_ADV) {
 		net_buf_put(&bt_mesh_friend_queue, net_buf_ref(buf));
 		bt_mesh_adv_buf_friend_ready();
-#else
-		net_buf_put(&bt_mesh_adv_queue, net_buf_ref(buf));
-		bt_mesh_adv_buf_local_ready();
+		return;
+	}
 #endif
-	} else {
+
 #if CONFIG_BT_MESH_RELAY_ADV_SETS
+	if (BT_MESH_ADV(buf)->tag == BT_MESH_RELAY_ADV) {
 		net_buf_put(&bt_mesh_relay_queue, net_buf_ref(buf));
 		bt_mesh_adv_buf_relay_ready();
-#else
-		net_buf_put(&bt_mesh_adv_queue, net_buf_ref(buf));
-		bt_mesh_adv_buf_local_ready();
-#endif
+		return;
 	}
+#endif
+
+	net_buf_put(&bt_mesh_adv_queue, net_buf_ref(buf));
+	bt_mesh_adv_buf_local_ready();
 }
 
 int bt_mesh_adv_gatt_send(void)

@@ -67,7 +67,7 @@ static void send_pending_adv(struct k_work *work);
 static bool schedule_send(struct bt_mesh_ext_adv *adv);
 
 static STRUCT_SECTION_ITERABLE(bt_mesh_ext_adv, adv_main) = {
-	.tag = (BT_MESH_LOCAL_ADV |
+	.tag = (
 #if !defined(CONFIG_BT_MESH_ADV_EXT_FRIEND_SEPARATE)
 		BT_MESH_FRIEND_ADV |
 #endif
@@ -328,7 +328,7 @@ static bool schedule_send(struct bt_mesh_ext_adv *adv)
 
 	atomic_clear_bit(adv->flags, ADV_FLAG_SCHEDULE_PENDING);
 
-	if (adv->tag & BT_MESH_FRIEND_ADV && IS_ENABLED(CONFIG_BT_MESH_ADV_EXT_FRIEND_SEPARATE)) {
+	if (IS_ENABLED(CONFIG_BT_MESH_ADV_EXT_FRIEND_SEPARATE) && adv->tag & BT_MESH_FRIEND_ADV) {
 		k_work_reschedule(&adv->work, K_NO_WAIT);
 	} else {
 		/* The controller will send the next advertisement immediately.
