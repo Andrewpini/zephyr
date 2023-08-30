@@ -53,6 +53,7 @@ struct comp_foreach_model_arg {
 };
 
 static const struct bt_mesh_comp *dev_comp;
+static const struct bt_mesh_comp2 *dev_comp2;
 static uint16_t dev_primary_addr;
 static void (*msg_cb)(uint32_t opcode, struct bt_mesh_msg_ctx *ctx, struct net_buf_simple *buf);
 
@@ -111,6 +112,9 @@ static const struct {
 	{ "bt/mesh/cmp/0", 0, },
 #if IS_ENABLED(CONFIG_BT_MESH_COMP_PAGE_1)
 	{ "bt/mesh/cmp/1", 1, },
+#endif
+#if IS_ENABLED(CONFIG_BT_MESH_COMP_PAGE_2)
+	{ "bt/mesh/cmp/2", 2, },
 #endif
 };
 
@@ -660,6 +664,36 @@ int bt_mesh_comp_data_get_page_1(struct net_buf_simple *buf)
 	return 0;
 }
 
+int bt_mesh_comp_data_get_page_2(struct net_buf_simple *buf)
+{
+	if (!dev_comp2) {
+		LOG_ERR("Composition data P2 not registered");
+		return -ENODEV;
+	}
+
+	for (int i = 0; i < dev_comp2->record_cnt; i++) {
+		/* TODO: Add buf size check */
+
+		net_buf_simple_add_le16(buf, dev_comp2->rec[i].id);
+		net_buf_simple_add_u8(buf, dev_comp2->rec[i].version.x);
+		net_buf_simple_add_u8(buf, dev_comp2->rec[i].version.y);
+		net_buf_simple_add_u8(buf, dev_comp2->rec[i].version.z);
+		net_buf_simple_add_u8(buf, dev_comp2->rec[i].elem_offset_cnt);
+		if (dev_comp2->rec[i].elem_offset_cnt) {
+			net_buf_simple_add_mem(buf, dev_comp2->rec[i].elem_offset,
+					       dev_comp2->rec[i].elem_offset_cnt);
+		}
+
+		net_buf_simple_add_le16(buf, dev_comp2->rec[i].additional_data_len);
+		if (dev_comp2->rec[i].additional_data_len) {
+			net_buf_simple_add_mem(buf, dev_comp2->rec[i].data,
+					       dev_comp2->rec[i].additional_data_len);
+		}
+	}
+
+	return 0;
+}
+
 int32_t bt_mesh_model_pub_period_get(struct bt_mesh_model *mod)
 {
 	int32_t period;
@@ -992,6 +1026,18 @@ int bt_mesh_comp_register(const struct bt_mesh_comp *comp)
 	}
 
 	return err;
+}
+
+int bt_mesh_comp_p2_reg(const struct bt_mesh_comp2 *comp2)
+{
+	/* There must be at least one record */
+	if (!comp2 || !comp2->record_cnt) {
+		return -EINVAL;
+	}
+
+	dev_comp2 = comp2;
+
+	return 0;
 }
 
 void bt_mesh_comp_provision(uint16_t addr)
@@ -2153,6 +2199,8 @@ int bt_mesh_comp_data_get_page(struct net_buf_simple *buf, size_t page, size_t o
 		return bt_mesh_comp_data_get_page_0(buf, offset);
 	} else if (page == 1 || page == 129) {
 		return bt_mesh_comp_data_get_page_1(buf);
+	} else if (page == 2 || page == 130) {
+		return bt_mesh_comp_data_get_page_2(buf);
 	}
 
 	return -EINVAL;

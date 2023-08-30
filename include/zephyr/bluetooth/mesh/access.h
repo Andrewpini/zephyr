@@ -1118,6 +1118,48 @@ bool bt_mesh_model_is_extended(struct bt_mesh_model *model);
  */
 int bt_mesh_comp_change_prepare(void);
 
+/** Composition data page 2 record. */
+struct bt_mesh_comp2_record {
+	/** Mesh profile ID. */
+	uint16_t id;
+	/** Version. */
+	struct {
+		/** Major version. */
+		uint8_t x;
+		/** Minor version. */
+		uint8_t y;
+		/** Z version. */
+		uint8_t z;
+	} version;
+	/** Element offset count. */
+	uint8_t elem_offset_cnt;
+	/** Element offset list. */
+	uint8_t *elem_offset;
+	/** Length of additional data. */
+	uint16_t additional_data_len;
+	/** Additional data. */
+	void *data;
+};
+
+/** Node Composition data page 2 */
+struct bt_mesh_comp2 {
+	/** The number of NLC record on this device. */
+	size_t record_cnt;
+	/** List of records. */
+	struct bt_mesh_comp2_record *rec;
+};
+
+/** @brief Register composition data page 2 of the device.
+ *
+ *  Register Network Lighting Control (NLC) information for composition data
+ *  page 2 of the device.
+ *
+ *  @param comp2 Pointer to composition data page 2.
+ *
+ *  @return Zero on success or (negative) error code otherwise.
+ */
+int bt_mesh_comp_p2_reg(const struct bt_mesh_comp2 *comp2);
+
 /** @brief Indicate that the metadata will change on next bootup.
  *
  *  Tell the config server that the models metadata is expected to change on
